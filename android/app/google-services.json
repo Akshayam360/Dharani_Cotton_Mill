@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "559394641703",
+    "project_id": "dharani-cotton-mill",
+    "storage_bucket": "dharani-cotton-mill.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:559394641703:android:2a3b7b3fd75ac47f847b02",
+        "android_client_info": {
+          "package_name": "com.example.dharani_salary_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAQ7tGKiLNLZ_uzR7yXn9o_Yf5ywXp7DcM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
