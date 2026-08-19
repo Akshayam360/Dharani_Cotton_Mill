@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 
-/// The 4 roles in this app.
-/// Staff & Labours -> handled by Sowmi
-/// MD & Exempted -> handled by teammate
+
 enum UserRole {
   staff,
   labour,
@@ -64,9 +62,7 @@ extension UserRoleX on UserRole {
     }
   }
 
-  /// Path to a background photo representing this role, used on the
-  /// login screen's left panel. Save the matching photo at this exact
-  /// path — if it's missing, the gradient alone is shown (no crash).
+
   String get backgroundAsset {
     switch (this) {
       case UserRole.staff:
@@ -156,10 +152,7 @@ class _BrandPanel extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // BACKGROUND PHOTO
-          // Save the mill photo at assets/images/mill_bg.png and
-          // register it in pubspec.yaml. If the file isn't found yet,
-          // this silently falls back to just the gradient above.
+
           Positioned.fill(
             child: Image.asset(
               'assets/images/mill_bg.png',
@@ -168,7 +161,6 @@ class _BrandPanel extends StatelessWidget {
             ),
           ),
 
-          // Dark overlay so text stays readable over the photo
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(

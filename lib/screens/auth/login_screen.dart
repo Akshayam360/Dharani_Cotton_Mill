@@ -172,9 +172,7 @@ class _ColorPanel extends StatelessWidget {
       ),
       child: Stack(
         children: [
-          // Role-specific background photo
-          // Save each role's photo at the exact path in role.backgroundAsset.
-          // If not present yet, this silently falls back to gradient only.
+
           Positioned.fill(
             child: Image.asset(
               role.backgroundAsset,
@@ -183,7 +181,6 @@ class _ColorPanel extends StatelessWidget {
             ),
           ),
 
-          // Tinted overlay so the gradient + text stay readable over the photo
           Positioned.fill(
             child: DecoratedBox(
               decoration: BoxDecoration(
