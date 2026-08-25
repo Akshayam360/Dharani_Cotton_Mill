@@ -19,18 +19,27 @@
 //    matching placeholder line below.
 // 3. Don't touch any other case — that avoids conflicts with your
 //    teammate's changes.
+//
+// NOTE ON `main`: this copy of the file (on the `main` branch) keeps
+// EVERY case as a placeholder, on purpose — `main` should always
+// compile standalone, even before any one person's screen files have
+// been merged in. Each dev wires up their real screen only inside
+// their OWN feature branch (see feature/staff-labour for the fully
+// wired Labour case, as an example). The final merge combines
+// everyone's real wiring into one file automatically, since each
+// person only ever touches their own `case` line.
 
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import '../screens/auth/role_selection_screen.dart'; // for UserRole enum
-import '../screens/labour/labour_shell_screen.dart';
 
 /// Returns the correct dashboard/shell screen for the given role.
 /// Add your own case here — see instructions above.
 Widget resolveDashboard(UserRole role) {
   switch (role) {
+  // TODO(labour owner): replace with LabourShellScreen()
     case UserRole.labour:
-      return const LabourShellScreen();
+      return _PendingDashboard(role: role);
 
   // TODO(staff owner): replace with StaffShellScreen()
     case UserRole.staff:
