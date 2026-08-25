@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
+import '../../services/role_router.dart';
 import 'role_selection_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -51,14 +52,11 @@ class _LoginScreenState extends State<LoginScreen> {
       return;
     }
 
-    // TODO: Replace this with actual role dashboards once built:
-    // UserRole.staff    -> StaffDashboard()      (Sowmi)
-    // UserRole.labour   -> LabourDashboard()     (Sowmi)
-    // UserRole.md       -> MdDashboard()         (Friend)
-    // UserRole.exempted -> ExemptedDashboard()   (Friend)
+    // Routing lives in role_router.dart now — see that file to wire up
+    // your own role's dashboard. This line never needs to change.
     Navigator.of(context).pushReplacement(
       MaterialPageRoute(
-        builder: (_) => _PlaceholderDashboard(role: widget.role),
+        builder: (_) => resolveDashboard(widget.role),
       ),
     );
   }
@@ -583,45 +581,6 @@ class _LoginForm extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Temporary placeholder shown after login until real dashboards are built.
-class _PlaceholderDashboard extends StatelessWidget {
-  final UserRole role;
-
-  const _PlaceholderDashboard({required this.role});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('${role.label} Dashboard'),
-        backgroundColor: role.color,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await AuthService().signOut();
-              if (context.mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
-                      (route) => false,
-                );
-              }
-            },
-          ),
-        ],
-      ),
-      body: Center(
-        child: Text(
-          '✅ Logged in as ${role.label}\nDashboard coming soon',
-          textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 18),
         ),
       ),
     );
