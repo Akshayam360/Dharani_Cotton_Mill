@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
 import '../auth/role_selection_screen.dart';
 import 'labour_management_screen.dart';
+import 'labour_calculator_screen.dart';
 
 class LabourColors {
   static const Color primary = Color(0xFF37474F); // blue-grey (Labour role)
@@ -42,11 +43,7 @@ class _LabourShellScreenState extends State<LabourShellScreen> {
       case LabourNavItem.labour:
         return const LabourManagementScreen();
       case LabourNavItem.calculator:
-        return const _ComingSoonBody(
-          title: 'Salary Calculator',
-          subtitle:
-          'Calculate labour wages with days worked, OT hours, PF and ESI deductions.',
-        );
+        return const LabourSalaryCalculatorScreen();
       case LabourNavItem.history:
         return const _ComingSoonBody(
           title: 'Salary History',
