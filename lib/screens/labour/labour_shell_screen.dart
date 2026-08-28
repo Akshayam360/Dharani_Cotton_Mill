@@ -15,6 +15,8 @@ import '../../services/auth_service.dart';
 import '../auth/role_selection_screen.dart';
 import 'labour_management_screen.dart';
 import 'labour_calculator_screen.dart';
+import 'labour_salary_history_screen.dart';
+import 'labour_dashboard_screen.dart';
 
 class LabourColors {
   static const Color primary = Color(0xFF37474F); // blue-grey (Labour role)
@@ -39,16 +41,17 @@ class _LabourShellScreenState extends State<LabourShellScreen> {
   Widget _currentBody() {
     switch (_selected) {
       case LabourNavItem.dashboard:
-        return const _LabourDashboardPlaceholder();
+        return LabourDashboardScreen(
+          onViewLabour: () => setState(() => _selected = LabourNavItem.labour),
+          onViewHistory: () =>
+              setState(() => _selected = LabourNavItem.history),
+        );
       case LabourNavItem.labour:
         return const LabourManagementScreen();
       case LabourNavItem.calculator:
         return const LabourSalaryCalculatorScreen();
       case LabourNavItem.history:
-        return const _ComingSoonBody(
-          title: 'Salary History',
-          subtitle: 'Immutable log of every labour salary run.',
-        );
+        return const LabourSalaryHistoryScreen();
     }
   }
 
@@ -173,16 +176,7 @@ class _Sidebar extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: OutlinedButton.icon(
-                    onPressed: () async {
-                      await AuthService().signOut();
-                      if (context.mounted) {
-                        Navigator.of(context).pushAndRemoveUntil(
-                          MaterialPageRoute(
-                              builder: (_) => const RoleSelectionScreen()),
-                              (route) => false,
-                        );
-                      }
-                    },
+                    onPressed: () => _confirmLogout(context),
                     icon: const Icon(Icons.logout, size: 16),
                     label: const Text('Logout'),
                     style: OutlinedButton.styleFrom(
@@ -197,6 +191,42 @@ class _Sidebar extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+/// Shows a confirmation dialog before signing out, so an accidental tap
+/// on Logout doesn't immediately kick the user back to the role screen.
+Future<void> _confirmLogout(BuildContext context) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (dialogContext) => AlertDialog(
+      title: const Text('Logout'),
+      content: const Text('Are you sure you want to logout?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(dialogContext, false),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: LabourColors.primaryDark,
+            foregroundColor: Colors.white,
+          ),
+          onPressed: () => Navigator.pop(dialogContext, true),
+          child: const Text('Logout'),
+        ),
+      ],
+    ),
+  );
+
+  if (confirmed == true) {
+    await AuthService().signOut();
+    if (context.mounted) {
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const RoleSelectionScreen()),
+            (route) => false,
+      );
+    }
   }
 }
 
@@ -248,84 +278,3 @@ class _NavTile extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------------------------
-// PLACEHOLDER DASHBOARD (swap for real LabourDashboardScreen later)
-// ---------------------------------------------------------------------------
-class _LabourDashboardPlaceholder extends StatelessWidget {
-  const _LabourDashboardPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('CONSOLE',
-              style: TextStyle(
-                  letterSpacing: 2, color: Colors.grey, fontSize: 12)),
-          const SizedBox(height: 8),
-          const Text(
-            'Labour Payroll Dashboard',
-            style: TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: LabourColors.primaryDark),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Snapshot of labour strength and salary runs for Dharani Cotton Mill.',
-            style: TextStyle(color: Colors.grey),
-          ),
-          const SizedBox(height: 24),
-          const Expanded(
-            child: Center(
-              child: Text(
-                'Dashboard cards (Total Labour, Salary Runs, Total Paid, Avg/Run)\ncoming next.',
-                textAlign: TextAlign.center,
-                style: TextStyle(color: Colors.grey),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// GENERIC "COMING SOON" BODY for not-yet-built tabs
-// ---------------------------------------------------------------------------
-class _ComingSoonBody extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const _ComingSoonBody({required this.title, required this.subtitle});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: const TextStyle(
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-                color: LabourColors.primaryDark),
-          ),
-          const SizedBox(height: 4),
-          Text(subtitle, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 24),
-          const Expanded(
-            child: Center(
-              child: Text('Coming soon.', style: TextStyle(color: Colors.grey)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}

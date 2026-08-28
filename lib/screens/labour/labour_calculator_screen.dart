@@ -114,8 +114,10 @@ class _LabourSalaryCalculatorScreenState
     final text = _labourIdCtrl.text.trim();
 
     // If the typed text no longer matches the currently loaded labour,
-    // clear the stale profile + any calculated result.
-    if (_labour != null && text != _labour!.labourId) {
+    // clear the stale profile + any calculated result. Compared in
+    // uppercase since Labour IDs are stored uppercase (LB001) but the
+    // user may type lower/mixed case.
+    if (_labour != null && text.toUpperCase() != _labour!.labourId) {
       setState(() {
         _labour = null;
         _result = null;
@@ -134,11 +136,14 @@ class _LabourSalaryCalculatorScreenState
   }
 
   Future<void> _searchLabours(String text) async {
+    // Labour IDs are stored uppercase (LB001), so normalize whatever the
+    // user typed — "lb", "Lb001", "LB001" all search the same way.
+    final query = text.toUpperCase();
     try {
       final snap = await _labourRef
           .orderBy(FieldPath.documentId)
-          .startAt([text])
-          .endAt(['$text\uf8ff'])
+          .startAt([query])
+          .endAt(['$query\uf8ff'])
           .limit(5)
           .get();
       if (!mounted) return;
@@ -163,7 +168,9 @@ class _LabourSalaryCalculatorScreenState
   }
 
   Future<void> _fetchLabour() async {
-    final id = _labourIdCtrl.text.trim();
+    // Normalize to uppercase to match stored Labour IDs (LB001), so
+    // "lb001" or "Lb001" still finds the right record.
+    final id = _labourIdCtrl.text.trim().toUpperCase();
     if (id.isEmpty) {
       setState(() {
         _labourError = 'Enter a Labour ID';
@@ -302,6 +309,7 @@ class _LabourSalaryCalculatorScreenState
       await _historyRef.add({
         'labourId': labour.labourId,
         'name': labour.name,
+        'bankAccount': labour.bankAccount,
         'month': result.month,
         'year': result.year,
         'workingDays': result.workingDays,
