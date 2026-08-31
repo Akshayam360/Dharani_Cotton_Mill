@@ -1,5 +1,3 @@
-
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
@@ -160,13 +158,33 @@ class _LabourManagementScreenState extends State<LabourManagementScreen> {
         existing: existing,
         onSave: (model) async {
           if (!isEdit) {
-            // Duplicate Labour ID check — only relevant when adding new.
+            // Duplicate Labour ID check — adding a brand new labour.
             final docSnap = await _labourRef.doc(model.labourId).get();
             if (docSnap.exists) {
               throw Exception('Labour ID "${model.labourId}" already exists');
             }
+            await _labourRef.doc(model.labourId).set(model.toMap());
+            return;
+          }
+
+          // Editing an existing labour.
+          final originalId = existing!.labourId;
+          if (model.labourId == originalId) {
+            // ID unchanged — plain update on the same document.
+            await _labourRef.doc(model.labourId).set(model.toMap());
+            return;
+          }
+
+          // ID changed — Firestore document IDs can't be renamed in
+          // place, so this means creating a new doc under the new ID
+          // and removing the old one. Guard against colliding with
+          // another labour that already uses the new ID.
+          final docSnap = await _labourRef.doc(model.labourId).get();
+          if (docSnap.exists) {
+            throw Exception('Labour ID "${model.labourId}" already exists');
           }
           await _labourRef.doc(model.labourId).set(model.toMap());
+          await _labourRef.doc(originalId).delete();
         },
       ),
     ).then((result) {
@@ -580,7 +598,6 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
                       Expanded(
                         child: TextFormField(
                           controller: _idCtrl,
-                          enabled: !_isEdit,
                           decoration: const InputDecoration(labelText: 'Labour ID'),
                           validator: (v) =>
                           (v == null || v.trim().isEmpty) ? 'Required' : null,
@@ -597,6 +614,15 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
                       ),
                     ],
                   ),
+                  if (_isEdit) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      'Changing the Labour ID moves this record to a new ID — '
+                          'past salary history stays linked to the old ID.',
+                      style: TextStyle(
+                          fontSize: 11.5, color: Colors.orange.shade800),
+                    ),
+                  ],
                   const SizedBox(height: 16),
                   Row(
                     children: [
