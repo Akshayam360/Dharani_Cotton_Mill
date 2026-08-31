@@ -28,10 +28,17 @@
 // wired Labour case, as an example). The final merge combines
 // everyone's real wiring into one file automatically, since each
 // person only ever touches their own `case` line.
+//
+// THIS COPY: on branch feature/md-exempted — only the MD case is
+// wired here. The Labour/Staff cases stay as placeholders on this
+// branch (your friend owns those lines on feature/staff-labour) so
+// merging doesn't conflict. Once Exempted is ready, wire that case
+// here too, on this same branch.
 
 import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import '../screens/auth/role_selection_screen.dart'; // for UserRole enum
+import '../screens/md/md_shell_screen.dart';
 
 /// Returns the correct dashboard/shell screen for the given role.
 /// Add your own case here — see instructions above.
@@ -45,9 +52,8 @@ Widget resolveDashboard(UserRole role) {
     case UserRole.staff:
       return _PendingDashboard(role: role);
 
-  // TODO(md owner): replace with MdShellScreen()
     case UserRole.md:
-      return _PendingDashboard(role: role);
+      return const MDShellScreen();
 
   // TODO(exempted owner): replace with ExemptedShellScreen()
     case UserRole.exempted:
