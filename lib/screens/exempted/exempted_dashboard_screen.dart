@@ -1,42 +1,37 @@
-// lib/screens/md/md_dashboard_screen.dart
+// lib/screens/exempted/exempted_dashboard_screen.dart
 //
-// MD Dashboard — mirrors the Labour Dashboard's structure (4 stat
-// cards + two recent-activity panels) but themed to the MD module's
-// teal palette and pointed at `md_management` / `md_salary_history`.
-//
-// Kept self-contained (no separate stat_card.dart) to match the pattern
-// already used in md_shell_screen.dart, where _Sidebar / _NavTile are
-// private widgets living in the same file rather than split out.
+// Exempted Dashboard — mirrors MD's dashboard structure (4 stat cards +
+// two recent-activity panels) but themed to deep teal and pointed at
+// `exempted_management` / `exempted_salary_history`.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
-import '../../models/md_salary_history_model.dart' show kMDHistoryMonthNames;
+import '../../models/exempted_salary_history_model.dart' show kExemptedHistoryMonthNames;
 
-class MDDashboardColors {
-  static const primaryDark = Color(0xFF00695C);
+class ExemptedDashboardColors {
+  static const primaryDark = Color(0xFF00838F);
   static const background = Color(0xFFF5F6F7);
   static const cardBorder = Color(0xFFE3E6E8);
 }
 
-class MDDashboardScreen extends StatelessWidget {
-  /// Lets the shell switch to the MD Management tab when "View All" is tapped.
-  final VoidCallback? onViewMD;
+class ExemptedDashboardScreen extends StatelessWidget {
+  /// Lets the shell switch to the Exempted Management tab when "View All" is tapped.
+  final VoidCallback? onViewExempted;
 
-  /// Lets the shell switch to the Salary History tab when "View History"
-  /// is tapped.
+  /// Lets the shell switch to the Salary History tab when "View History" is tapped.
   final VoidCallback? onViewHistory;
 
-  const MDDashboardScreen({
+  const ExemptedDashboardScreen({
     super.key,
-    this.onViewMD,
+    this.onViewExempted,
     this.onViewHistory,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: MDDashboardColors.background,
+      color: ExemptedDashboardColors.background,
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
@@ -52,16 +47,16 @@ class MDDashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             const Text(
-              'MD Payroll Dashboard',
+              'Exempted Payroll Dashboard',
               style: TextStyle(
                 fontSize: 34,
                 fontWeight: FontWeight.bold,
-                color: MDDashboardColors.primaryDark,
+                color: ExemptedDashboardColors.primaryDark,
               ),
             ),
             const SizedBox(height: 6),
             const Text(
-              'Snapshot of MD strength and salary runs for Dharani Cotton Mill.',
+              'Snapshot of exempted staff strength and salary runs for Dharani Cotton Mill.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 28),
@@ -71,7 +66,7 @@ class MDDashboardScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(child: _buildRecentMDRecords()),
+                  Expanded(child: _buildRecentRecords()),
                   const SizedBox(width: 20),
                   Expanded(child: _buildRecentSalaryRuns()),
                 ],
@@ -88,21 +83,16 @@ class MDDashboardScreen extends StatelessWidget {
   // -------------------------------------------------------------------
   Widget _buildStatCards() {
     return StreamBuilder<QuerySnapshot>(
-      // orderBy('MDId') matches the query used in md_management_screen.dart —
-      // Firestore excludes docs missing that field from an orderBy query,
-      // so this count stays in sync with what's actually visible there
-      // (any stray doc without a valid MDId, e.g. from an old bug, won't
-      // inflate the count).
       stream: FirebaseFirestore.instance
-          .collection('md_management')
-          .orderBy('MDId')
+          .collection('exempted_management')
+          .orderBy('empId')
           .snapshots(),
-      builder: (context, mdSnap) {
-        final mdCount = mdSnap.hasData ? mdSnap.data!.docs.length : 0;
+      builder: (context, empSnap) {
+        final empCount = empSnap.hasData ? empSnap.data!.docs.length : 0;
 
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
-              .collection('md_salary_history')
+              .collection('exempted_salary_history')
               .snapshots(),
           builder: (context, historySnap) {
             final docs = historySnap.hasData ? historySnap.data!.docs : [];
@@ -118,15 +108,15 @@ class MDDashboardScreen extends StatelessWidget {
             return Row(
               children: [
                 Expanded(
-                  child: _MDStatCard(
-                    title: 'Total MD',
-                    value: '$mdCount',
+                  child: _ExemptedStatCard(
+                    title: 'Total Exempted',
+                    value: '$empCount',
                     icon: Icons.groups_outlined,
                   ),
                 ),
                 const SizedBox(width: 20),
                 Expanded(
-                  child: _MDStatCard(
+                  child: _ExemptedStatCard(
                     title: 'Salary Runs',
                     value: '$salaryRuns',
                     icon: Icons.receipt_long,
@@ -134,7 +124,7 @@ class MDDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 20),
                 Expanded(
-                  child: _MDStatCard(
+                  child: _ExemptedStatCard(
                     title: 'Total Paid',
                     value: 'Rs.${totalPaid.toStringAsFixed(0)}',
                     icon: Icons.account_balance_wallet,
@@ -142,7 +132,7 @@ class MDDashboardScreen extends StatelessWidget {
                 ),
                 const SizedBox(width: 20),
                 Expanded(
-                  child: _MDStatCard(
+                  child: _ExemptedStatCard(
                     title: 'Avg / Run',
                     value: 'Rs.${avgPerRun.toStringAsFixed(0)}',
                     icon: Icons.trending_up,
@@ -157,15 +147,15 @@ class MDDashboardScreen extends StatelessWidget {
   }
 
   // -------------------------------------------------------------------
-  // RECENT MD RECORDS
+  // RECENT EXEMPTED RECORDS
   // -------------------------------------------------------------------
-  Widget _buildRecentMDRecords() {
+  Widget _buildRecentRecords() {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MDDashboardColors.cardBorder),
+        border: Border.all(color: ExemptedDashboardColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,12 +163,12 @@ class MDDashboardScreen extends StatelessWidget {
           Row(
             children: [
               const Text(
-                'Recent MD Records',
+                'Recent Exempted Records',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               const Spacer(),
               TextButton(
-                onPressed: onViewMD,
+                onPressed: onViewExempted,
                 child: const Text('View All'),
               ),
             ],
@@ -187,8 +177,8 @@ class MDDashboardScreen extends StatelessWidget {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('md_management')
-                  .orderBy('MDId')
+                  .collection('exempted_management')
+                  .orderBy('empId')
                   .limit(5)
                   .snapshots(),
               builder: (context, snapshot) {
@@ -197,17 +187,16 @@ class MDDashboardScreen extends StatelessWidget {
                 }
                 final docs = snapshot.data!.docs;
                 if (docs.isEmpty) {
-                  return const Center(child: Text('No MD Records'));
+                  return const Center(child: Text('No Exempted Records'));
                 }
                 return SingleChildScrollView(
                   child: Column(
                     children: [
-                      // Header row
                       Container(
                         padding: const EdgeInsets.symmetric(
                             horizontal: 12, vertical: 12),
                         decoration: BoxDecoration(
-                          color: MDDashboardColors.background,
+                          color: ExemptedDashboardColors.background,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: const Row(
@@ -236,7 +225,6 @@ class MDDashboardScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      // Data rows, each stretched to fill the card's width.
                       ...docs.map((doc) {
                         final data = doc.data() as Map<String, dynamic>;
                         return Container(
@@ -245,14 +233,15 @@ class MDDashboardScreen extends StatelessWidget {
                           decoration: BoxDecoration(
                             border: Border(
                               bottom: BorderSide(
-                                  color: MDDashboardColors.cardBorder, width: 1),
+                                  color: ExemptedDashboardColors.cardBorder,
+                                  width: 1),
                             ),
                           ),
                           child: Row(
                             children: [
                               Expanded(
                                   flex: 2,
-                                  child: Text(data['MDId']?.toString() ?? '')),
+                                  child: Text(data['empId']?.toString() ?? '')),
                               Expanded(
                                   flex: 4,
                                   child: Text(data['name']?.toString() ?? '',
@@ -285,7 +274,7 @@ class MDDashboardScreen extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: MDDashboardColors.cardBorder),
+        border: Border.all(color: ExemptedDashboardColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -308,7 +297,7 @@ class MDDashboardScreen extends StatelessWidget {
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
-                  .collection('md_salary_history')
+                  .collection('exempted_salary_history')
                   .orderBy('generatedAt', descending: true)
                   .limit(5)
                   .snapshots(),
@@ -332,12 +321,12 @@ class MDDashboardScreen extends StatelessWidget {
                         ? (data['year'] as num).toInt()
                         : DateTime.now().year;
                     final monthLabel =
-                        '${kMDHistoryMonthNames[month - 1]} $year';
+                        '${kExemptedHistoryMonthNames[month - 1]} $year';
                     final netSalary = (data['netSalary'] ?? 0).toDouble();
 
                     return ListTile(
                       leading: const CircleAvatar(
-                        backgroundColor: MDDashboardColors.primaryDark,
+                        backgroundColor: ExemptedDashboardColors.primaryDark,
                         child:
                         Icon(Icons.receipt_long, color: Colors.white),
                       ),
@@ -346,7 +335,7 @@ class MDDashboardScreen extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
                       subtitle:
-                      Text('${data['MDId'] ?? ''} • $monthLabel'),
+                      Text('${data['empId'] ?? ''} • $monthLabel'),
                       trailing: Text(
                         'Rs.${netSalary.toStringAsFixed(0)}',
                         style: const TextStyle(
@@ -368,25 +357,24 @@ class MDDashboardScreen extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// STAT CARD — same hover-lift interaction as Labour's stat card,
-// re-themed to MDDashboardColors (teal).
+// STAT CARD — same hover-lift interaction as MD's stat card.
 // ---------------------------------------------------------------------------
-class _MDStatCard extends StatefulWidget {
+class _ExemptedStatCard extends StatefulWidget {
   final String title;
   final String value;
   final IconData icon;
 
-  const _MDStatCard({
+  const _ExemptedStatCard({
     required this.title,
     required this.value,
     required this.icon,
   });
 
   @override
-  State<_MDStatCard> createState() => _MDStatCardState();
+  State<_ExemptedStatCard> createState() => _ExemptedStatCardState();
 }
 
-class _MDStatCardState extends State<_MDStatCard> {
+class _ExemptedStatCardState extends State<_ExemptedStatCard> {
   bool isHover = false;
 
   @override
@@ -403,7 +391,7 @@ class _MDStatCardState extends State<_MDStatCard> {
           color: Colors.white,
           border: Border.all(
             color: isHover
-                ? MDDashboardColors.primaryDark
+                ? ExemptedDashboardColors.primaryDark
                 : Colors.grey.shade200,
           ),
           borderRadius: BorderRadius.circular(12),
@@ -433,7 +421,7 @@ class _MDStatCardState extends State<_MDStatCard> {
                 Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
-                    color: MDDashboardColors.primaryDark,
+                    color: ExemptedDashboardColors.primaryDark,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(widget.icon, color: Colors.white, size: 18),

@@ -1,19 +1,18 @@
-// lib/services/md_salary_history_service.dart
+// lib/services/exempted_salary_history_service.dart
 //
-// Firestore access for `md_salary_history`. Simpler than Staff's
-// equivalent service — MD has no CL/OD leave balance to restore on
-// delete, so deleting a record is a plain doc delete.
+// Firestore access for `exempted_salary_history`. Plain doc delete —
+// no leave balance to restore, same as MD/Labour's history services.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/md_salary_history_model.dart';
+import '../models/exempted_salary_history_model.dart';
 
-class MDSalaryHistoryService {
+class ExemptedSalaryHistoryService {
   final CollectionReference<Map<String, dynamic>> _ref =
-  FirebaseFirestore.instance.collection('md_salary_history');
+  FirebaseFirestore.instance.collection('exempted_salary_history');
 
-  Stream<List<MDSalaryHistoryModel>> getSalaryHistory() {
+  Stream<List<ExemptedSalaryHistoryModel>> getSalaryHistory() {
     return _ref.snapshots().map(
-          (snap) => snap.docs.map(MDSalaryHistoryModel.fromDoc).toList(),
+          (snap) => snap.docs.map(ExemptedSalaryHistoryModel.fromDoc).toList(),
     );
   }
 

@@ -1,124 +1,115 @@
+// lib/screens/exempted/exempted_management_screen.dart
+//
+// Exempted Management (Master Data) screen — search + Add button +
+// table, same pattern as MD Management, but with no Shift and no
+// PF/ESI/TDS (Exempted staff are exempt from those statutory
+// deductions — only Insurance and Welfare apply).
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
-// ── Local theme constants (kept in sync with md_shell_screen.dart) ──
+// ── Local theme constants (deep teal, distinct from MD's teal) ──
 class _C {
-  // Matches UserRole.md.color (teal) from role_selection_screen.dart
-  static const navyDark = Color(0xFF00695C); // primary (was navy, now teal)
-  static const gold = Color(0xFF00897B); // accent (teal, lighter shade)
+  static const primary = Color(0xFF00838F);
+  static const gradientLight = Color(0xFF00828E); // matches the login button's gradient
   static const background = Color(0xFFF5F6F7);
   static const cardWhite = Color(0xFFFFFFFF);
   static const cardBorder = Color(0xFFE3E6E8);
-  static const textPrimary = Color(0xFF004D40);
+  static const textPrimary = Color(0xFF00838F);
   static const textSecondary = Color(0xFF6B7280);
-  static const mdAccent = Color(0xFF00695C);
-  static const mdAccentBg = Color(0xFFE0F2F1);
+  static const accentBg = Color(0xFFE0F2F1);
   static const danger = Color(0xFFD9534F);
+
+  /// The same diagonal light→dark teal gradient used on the login
+  /// screen's Login button, reused on every primary filled button here.
+  static const buttonGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [gradientLight, Color(0xFF00838F)],
+  );
 }
 
-/// Master data record managed by the MD role. Firestore collection: 'md_management'.
-class MDRecord {
-  final String? docId; // Firestore doc id, null for a not-yet-saved record
-  final String MDId;
+/// Master data record managed for the Exempted role.
+/// Firestore collection: 'exempted_management'.
+class ExemptedRecord {
+  final String? docId;
+  final String empId;
   final String name;
   final double monthlySalary;
   final double insurance;
   final double welfare;
   final String bankAccount;
-  final bool pfEnabled;
-  final double tds;
 
-  const MDRecord({
+  const ExemptedRecord({
     this.docId,
-    required this.MDId,
+    required this.empId,
     required this.name,
     required this.monthlySalary,
     required this.insurance,
     required this.welfare,
     required this.bankAccount,
-    required this.pfEnabled,
-    required this.tds,
   });
 
-  factory MDRecord.fromDoc(QueryDocumentSnapshot doc) {
+  factory ExemptedRecord.fromDoc(QueryDocumentSnapshot doc) {
     final map = doc.data() as Map<String, dynamic>;
-    return MDRecord(
+    return ExemptedRecord(
       docId: doc.id,
-      MDId: map['MDId'] ?? '',
+      empId: map['empId'] ?? '',
       name: map['name'] ?? '',
       monthlySalary: (map['monthlySalary'] ?? 0).toDouble(),
       insurance: (map['insurance'] ?? 0).toDouble(),
       welfare: (map['welfare'] ?? 0).toDouble(),
       bankAccount: map['bankAccount'] ?? '',
-      pfEnabled: map['pfEnabled'] ?? true,
-      tds: (map['tds'] ?? 0).toDouble(),
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'MDId': MDId,
+    'empId': empId,
     'name': name,
     'monthlySalary': monthlySalary,
     'insurance': insurance,
     'welfare': welfare,
     'bankAccount': bankAccount,
-    'pfEnabled': pfEnabled,
-    'tds': tds,
   };
 }
 
-/// Salary formula helpers — reused by md_calculator_screen.dart too.
-/// Standard working days = 26/month (4 days monthly leave).
-/// No ESI for MD (role doesn't need it). PF is capped at the statutory
-/// wage ceiling of ₹15,000 — 12% is applied to whichever is smaller,
-/// the actual Basic+DA or the ceiling, matching the real PF register.
-class SalaryMath {
+/// Salary formula helpers — reused by exempted_calculator_screen.dart.
+/// Standard working days = 26/month. No PF/ESI/TDS for this role.
+class ExemptedSalaryMath {
   static const int standardWorkingDays = 26;
-  static const double basicDAPercent = 0.60;
-  static const double hraPercent = 0.40;
-  static const double pfPercent = 0.12;
-  static const double pfWageCeiling = 15000;
 
   static Map<String, double> calculate({
-    required MDRecord record,
+    required ExemptedRecord record,
     required int presentDays,
     int standardDays = standardWorkingDays,
   }) {
     final clamped = presentDays.clamp(0, standardDays);
     final perDay = record.monthlySalary / standardDays;
     final gross = perDay * clamped;
-    final basicDA = gross * basicDAPercent;
-    final hra = gross * hraPercent;
-    final pfWageBase = basicDA > pfWageCeiling ? pfWageCeiling : basicDA;
-    final pf = record.pfEnabled ? pfWageBase * pfPercent : 0.0;
-    final totalDeductions = pf + record.insurance + record.welfare + record.tds;
+    final totalDeductions = record.insurance + record.welfare;
     final net = gross - totalDeductions;
 
     return {
       'gross': gross,
-      'basicDA': basicDA,
-      'hra': hra,
-      'pf': pf,
       'insurance': record.insurance,
       'welfare': record.welfare,
-      'tds': record.tds,
       'totalDeductions': totalDeductions,
       'net': net,
     };
   }
 }
 
-/// MD Management (Master Data) screen — search + Add button + table,
-/// same pattern as the Staff Management reference screen.
-class MDManagementScreen extends StatefulWidget {
-  const MDManagementScreen({super.key});
+class ExemptedManagementScreen extends StatefulWidget {
+  const ExemptedManagementScreen({super.key});
 
   @override
-  State<MDManagementScreen> createState() => _MDManagementScreenState();
+  State<ExemptedManagementScreen> createState() =>
+      _ExemptedManagementScreenState();
 }
 
-class _MDManagementScreenState extends State<MDManagementScreen> {
-  final _collection = FirebaseFirestore.instance.collection('md_management');
+class _ExemptedManagementScreenState extends State<ExemptedManagementScreen> {
+  final _collection =
+  FirebaseFirestore.instance.collection('exempted_management');
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _horizontalScrollController = ScrollController();
   String _query = '';
@@ -133,9 +124,9 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
   @override
   Widget build(BuildContext context) {
     // SizedBox.expand forces this screen to fill the full height given by
-    // the shell's Row/Expanded (Row's default crossAxisAlignment is center,
-    // so without this the content would shrink to its own height and end
-    // up vertically centered instead of pinned to the top).
+    // the shell's Row/Expanded (Row's default crossAxisAlignment is
+    // center, so without this the content would shrink to its own
+    // height and end up vertically centered instead of pinned to top).
     return SizedBox.expand(
       child: Align(
         alignment: Alignment.topLeft,
@@ -145,11 +136,11 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('MD Management',
+              const Text('Exempted Management',
                   style: TextStyle(
                       fontSize: 28, fontWeight: FontWeight.w800, color: _C.textPrimary)),
               const SizedBox(height: 4),
-              const Text('Add, edit and review every md master record used for payroll.',
+              const Text('Add, edit and review every exempted master record used for payroll.',
                   style: TextStyle(fontSize: 12, color: _C.textSecondary)),
               const SizedBox(height: 20),
               _buildSearchAndAdd(),
@@ -183,7 +174,7 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
                     controller: _searchController,
                     onChanged: (v) => setState(() => _query = v),
                     decoration: const InputDecoration(
-                      hintText: 'Search by name or md ID...',
+                      hintText: 'Search by name or Emp ID...',
                       border: InputBorder.none,
                       isCollapsed: true,
                     ),
@@ -194,17 +185,24 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
           ),
         ),
         const SizedBox(width: 16),
-        ElevatedButton.icon(
-          onPressed: () => _openForm(),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: _C.navyDark,
-            foregroundColor: Colors.white,
-            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-            elevation: 0,
+        Container(
+          decoration: BoxDecoration(
+            gradient: _C.buttonGradient,
+            borderRadius: BorderRadius.circular(8),
           ),
-          icon: const Icon(Icons.add_rounded, size: 18),
-          label: const Text('Add Record'),
+          child: ElevatedButton.icon(
+            onPressed: () => _openForm(),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              elevation: 0,
+            ),
+            icon: const Icon(Icons.add_rounded, size: 18),
+            label: const Text('Add Record'),
+          ),
         ),
       ],
     );
@@ -212,18 +210,18 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
 
   Widget _buildTable() {
     return StreamBuilder<QuerySnapshot>(
-      stream: _collection.orderBy('MDId').snapshots(),
+      stream: _collection.orderBy('empId').snapshots(),
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        var records = snapshot.data!.docs.map(MDRecord.fromDoc).toList();
+        var records = snapshot.data!.docs.map(ExemptedRecord.fromDoc).toList();
         if (_query.trim().isNotEmpty) {
           final q = _query.toLowerCase();
           records = records
               .where((r) =>
           r.name.toLowerCase().contains(q) ||
-              r.MDId.toLowerCase().contains(q))
+              r.empId.toLowerCase().contains(q))
               .toList();
         }
 
@@ -254,7 +252,7 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
             data: ScrollbarThemeData(
               thickness: WidgetStateProperty.all(6),
               radius: const Radius.circular(8),
-              thumbColor: WidgetStateProperty.all(_C.mdAccent.withValues(alpha: 0.55)),
+              thumbColor: WidgetStateProperty.all(_C.primary.withValues(alpha: 0.55)),
               trackColor: WidgetStateProperty.all(_C.background),
               trackBorderColor: WidgetStateProperty.all(Colors.transparent),
               crossAxisMargin: 4,
@@ -267,64 +265,52 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
               child: SingleChildScrollView(
                 controller: _horizontalScrollController,
                 scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.only(bottom: 16), // room for the slim scrollbar
+                padding: const EdgeInsets.only(bottom: 16),
                 child: ConstrainedBox(
-                  // Force the table to be at least as wide as the visible area
-                  // so short tables still stretch edge-to-edge like the
-                  // reference Labour Management screen, instead of hugging
-                  // the left side with dead space on the right.
                   constraints: BoxConstraints(
                     minWidth: MediaQuery.of(context).size.width - 240 - 64,
                   ),
                   child: DataTable(
-                    headingRowColor: WidgetStateProperty.all(_C.background),
+                    headingRowColor: WidgetStateProperty.all(_C.accentBg),
                     headingRowHeight: 52,
                     dataRowMinHeight: 64,
                     dataRowMaxHeight: 68,
                     columnSpacing: 40,
                     horizontalMargin: 24,
-                    dividerThickness: 1, // horizontal line under every row
+                    dividerThickness: 1,
                     columns: const [
-                      DataColumn(label: _Header('MD ID')),
+                      DataColumn(label: _Header('EMP ID')),
                       DataColumn(label: _Header('NAME')),
                       DataColumn(label: _Header('BANK ACCOUNT')),
                       DataColumn(label: _Header('MONTHLY SALARY')),
-                      DataColumn(label: _Header('PF')),
                       DataColumn(label: _Header('INSURANCE')),
                       DataColumn(label: _Header('WELFARE')),
-                      DataColumn(label: _Header('TDS')),
                       DataColumn(label: _Header('ACTIONS')),
                     ],
                     rows: records.map((r) {
                       return DataRow(cells: [
-                        DataCell(Text(r.MDId,
-                            style: const TextStyle(fontWeight: FontWeight.w600))),
+                        DataCell(Text(r.empId)),
                         DataCell(Text(r.name)),
                         DataCell(Text(r.bankAccount,
                             style: const TextStyle(color: _C.textSecondary))),
                         DataCell(Text('₹${r.monthlySalary.toStringAsFixed(0)}',
                             style: const TextStyle(fontWeight: FontWeight.w600))),
-                        DataCell(_boolChip(r.pfEnabled)),
                         DataCell(Text('₹${r.insurance.toStringAsFixed(0)}')),
                         DataCell(Text('₹${r.welfare.toStringAsFixed(0)}')),
-                        DataCell(Text('₹${r.tds.toStringAsFixed(0)}')),
                         DataCell(Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             IconButton(
-                              visualDensity: VisualDensity.compact,
                               icon: const Icon(Icons.visibility_outlined,
                                   size: 18, color: _C.textSecondary),
                               onPressed: () => _viewRecord(r),
                             ),
                             IconButton(
-                              visualDensity: VisualDensity.compact,
                               icon: const Icon(Icons.edit_outlined,
                                   size: 18, color: _C.textSecondary),
                               onPressed: () => _openForm(existing: r),
                             ),
                             IconButton(
-                              visualDensity: VisualDensity.compact,
                               icon: const Icon(Icons.delete_outline_rounded,
                                   size: 18, color: _C.danger),
                               onPressed: () => _confirmDelete(r),
@@ -343,22 +329,7 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
     );
   }
 
-  Widget _boolChip(bool value) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-      decoration: BoxDecoration(
-        color: value ? _C.mdAccentBg : _C.background,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(value ? 'Yes' : '--',
-          style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: value ? _C.mdAccent : _C.textSecondary)),
-    );
-  }
-
-  void _viewRecord(MDRecord record) {
+  void _viewRecord(ExemptedRecord record) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -371,13 +342,11 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _viewRow('MD ID', record.MDId),
+              _viewRow('Emp ID', record.empId),
               _viewRow('Bank Account', record.bankAccount),
               _viewRow('Monthly Salary', '₹${record.monthlySalary.toStringAsFixed(0)}'),
-              _viewRow('PF Enabled', record.pfEnabled ? 'Yes (12%)' : 'No'),
               _viewRow('Insurance', '₹${record.insurance.toStringAsFixed(0)}'),
               _viewRow('Welfare', '₹${record.welfare.toStringAsFixed(0)}'),
-              _viewRow('TDS', '₹${record.tds.toStringAsFixed(0)}'),
             ],
           ),
         ),
@@ -411,13 +380,13 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
     );
   }
 
-  void _confirmDelete(MDRecord record) {
+  void _confirmDelete(ExemptedRecord record) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete record?'),
         content: Text(
-            'Remove ${record.name} (${record.MDId})? This does not delete past salary history.'),
+            'Remove ${record.name} (${record.empId})? This does not delete past salary history.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           TextButton(
@@ -434,10 +403,10 @@ class _MDManagementScreenState extends State<MDManagementScreen> {
     );
   }
 
-  void _openForm({MDRecord? existing}) {
+  void _openForm({ExemptedRecord? existing}) {
     showDialog(
       context: context,
-      builder: (ctx) => _MDRecordFormDialog(
+      builder: (ctx) => _ExemptedRecordFormDialog(
         existing: existing,
         collection: _collection,
         onSave: (record) async {
@@ -467,46 +436,43 @@ class _Header extends StatelessWidget {
   }
 }
 
-class _MDRecordFormDialog extends StatefulWidget {
-  final MDRecord? existing;
-  final ValueChanged<MDRecord> onSave;
+class _ExemptedRecordFormDialog extends StatefulWidget {
+  final ExemptedRecord? existing;
+  final ValueChanged<ExemptedRecord> onSave;
   final CollectionReference<Map<String, dynamic>> collection;
 
-  const _MDRecordFormDialog({
+  const _ExemptedRecordFormDialog({
     this.existing,
     required this.onSave,
     required this.collection,
   });
 
   @override
-  State<_MDRecordFormDialog> createState() => _MDRecordFormDialogState();
+  State<_ExemptedRecordFormDialog> createState() =>
+      _ExemptedRecordFormDialogState();
 }
 
-class _MDRecordFormDialogState extends State<_MDRecordFormDialog> {
+class _ExemptedRecordFormDialogState extends State<_ExemptedRecordFormDialog> {
   final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _MDIdCtrl;
+  late final TextEditingController _empIdCtrl;
   late final TextEditingController _nameCtrl;
   late final TextEditingController _bankCtrl;
   late final TextEditingController _salaryCtrl;
   late final TextEditingController _insuranceCtrl;
   late final TextEditingController _welfareCtrl;
-  late final TextEditingController _tdsCtrl;
-  late bool _pfEnabled;
   bool _isSaving = false;
-  String? _mdIdError; // shown under the MD ID field when it's a duplicate
+  String? _empIdError;
 
   @override
   void initState() {
     super.initState();
     final e = widget.existing;
-    _MDIdCtrl = TextEditingController(text: e?.MDId ?? '');
+    _empIdCtrl = TextEditingController(text: e?.empId ?? '');
     _nameCtrl = TextEditingController(text: e?.name ?? '');
     _bankCtrl = TextEditingController(text: e?.bankAccount ?? '');
     _salaryCtrl = TextEditingController(text: e?.monthlySalary.toString() ?? '');
     _insuranceCtrl = TextEditingController(text: e?.insurance.toString() ?? '0');
     _welfareCtrl = TextEditingController(text: e?.welfare.toString() ?? '0');
-    _tdsCtrl = TextEditingController(text: e?.tds.toString() ?? '0');
-    _pfEnabled = e?.pfEnabled ?? true;
   }
 
   @override
@@ -526,12 +492,12 @@ class _MDRecordFormDialogState extends State<_MDRecordFormDialog> {
                 Text(isEdit ? 'Edit Record' : 'Add Record',
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 20),
-                _field(_MDIdCtrl, 'MD ID', hint: 'e.g. MD001', errorText: _mdIdError),
+                _field(_empIdCtrl, 'Emp ID', hint: 'e.g. EMP001', errorText: _empIdError),
                 if (isEdit)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 14, top: 2),
                     child: Text(
-                      'Changing the MD ID moves this record to a new ID — past salary history stays linked to the old ID.',
+                      'Changing the Emp ID moves this record to a new ID — past salary history stays linked to the old ID.',
                       style: TextStyle(
                           fontSize: 11.5,
                           color: Colors.orange.shade800,
@@ -553,15 +519,6 @@ class _MDRecordFormDialogState extends State<_MDRecordFormDialog> {
                             keyboardType: TextInputType.number, isCurrency: true)),
                   ],
                 ),
-                _field(_tdsCtrl, 'TDS', keyboardType: TextInputType.number, isCurrency: true),
-                const SizedBox(height: 8),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text('PF Enabled (12%, capped at ₹15,000)'),
-                  value: _pfEnabled,
-                  activeThumbColor: _C.mdAccent,
-                  onChanged: (v) => setState(() => _pfEnabled = v),
-                ),
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
@@ -569,18 +526,27 @@ class _MDRecordFormDialogState extends State<_MDRecordFormDialog> {
                     TextButton(
                         onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
                     const SizedBox(width: 8),
-                    ElevatedButton(
-                      onPressed: _isSaving ? null : _submit,
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: _C.navyDark, foregroundColor: Colors.white, elevation: 0),
-                      child: _isSaving
-                          ? const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                            strokeWidth: 2, color: Colors.white),
-                      )
-                          : const Text('Save'),
+                    Container(
+                      decoration: BoxDecoration(
+                        gradient: _C.buttonGradient,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: ElevatedButton(
+                        onPressed: _isSaving ? null : _submit,
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.transparent,
+                            shadowColor: Colors.transparent,
+                            foregroundColor: Colors.white,
+                            elevation: 0),
+                        child: _isSaving
+                            ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        )
+                            : const Text('Save'),
+                      ),
                     ),
                   ],
                 ),
@@ -605,11 +571,10 @@ class _MDRecordFormDialogState extends State<_MDRecordFormDialog> {
           prefixText: isCurrency ? '₹ ' : null,
           border: const OutlineInputBorder(),
           isDense: true,
-          errorText: errorText, // shows "MD ID already exists" under the field
+          errorText: errorText,
         ),
         onChanged: (_) {
-          // Clear the duplicate error as soon as the user edits the ID again.
-          if (errorText != null) setState(() => _mdIdError = null);
+          if (errorText != null) setState(() => _empIdError = null);
         },
         validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
       ),
@@ -619,39 +584,33 @@ class _MDRecordFormDialogState extends State<_MDRecordFormDialog> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
 
-    final enteredId = _MDIdCtrl.text.trim();
+    final enteredId = _empIdCtrl.text.trim();
     setState(() {
       _isSaving = true;
-      _mdIdError = null;
+      _empIdError = null;
     });
 
-    // Check Firestore for another record with the same MD ID.
-    // On edit, the record's own doc is excluded so re-saving the same
-    // record with its own ID doesn't falsely flag as a duplicate.
-    final existingDocs = await widget.collection
-        .where('MDId', isEqualTo: enteredId)
-        .get();
-    final isDuplicate = existingDocs.docs.any(
-            (doc) => doc.id != widget.existing?.docId);
+    final existingDocs =
+    await widget.collection.where('empId', isEqualTo: enteredId).get();
+    final isDuplicate =
+    existingDocs.docs.any((doc) => doc.id != widget.existing?.docId);
 
     if (isDuplicate) {
       setState(() {
         _isSaving = false;
-        _mdIdError = 'MD ID "$enteredId" already exists — use a different one.';
+        _empIdError = 'Emp ID "$enteredId" already exists — use a different one.';
       });
       return;
     }
 
-    widget.onSave(MDRecord(
+    widget.onSave(ExemptedRecord(
       docId: widget.existing?.docId,
-      MDId: enteredId,
+      empId: enteredId,
       name: _nameCtrl.text.trim(),
       monthlySalary: double.tryParse(_salaryCtrl.text) ?? 0,
       insurance: double.tryParse(_insuranceCtrl.text) ?? 0,
       welfare: double.tryParse(_welfareCtrl.text) ?? 0,
       bankAccount: _bankCtrl.text.trim(),
-      pfEnabled: _pfEnabled,
-      tds: double.tryParse(_tdsCtrl.text) ?? 0,
     ));
     if (mounted) Navigator.pop(context);
   }
