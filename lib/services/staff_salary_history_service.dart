@@ -1,19 +1,19 @@
-// lib/services/labour_salary_history_service.dart
+// lib/services/staff_salary_history_service.dart
 //
-// Firestore access for `labour_salary_history`. Simpler than Staff's
-// equivalent service — Labour has no CL/OD leave balance to restore on
+// Firestore access for `staff_salary_history`. Simpler than the
+// college app's equivalent — no CL/OD leave balance to restore on
 // delete, so deleting a record is a plain doc delete.
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import '../models/labour_salary_history_model.dart';
+import '../models/staff_salary_history_model.dart';
 
-class LabourSalaryHistoryService {
+class StaffSalaryHistoryService {
   final CollectionReference<Map<String, dynamic>> _ref =
-  FirebaseFirestore.instance.collection('labour_salary_history');
+  FirebaseFirestore.instance.collection('staff_salary_history');
 
-  Stream<List<LabourSalaryHistoryModel>> getSalaryHistory() {
+  Stream<List<StaffSalaryHistoryModel>> getSalaryHistory() {
     return _ref.snapshots().map(
-          (snap) => snap.docs.map(LabourSalaryHistoryModel.fromDoc).toList(),
+          (snap) => snap.docs.map(StaffSalaryHistoryModel.fromDoc).toList(),
     );
   }
 

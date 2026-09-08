@@ -50,7 +50,6 @@ class LabourModel {
   final String name;
   final Shift shift;
   final double perDaySalary;
-  final double productionAllowance;
   final double insurance;
   final double welfare;
   final String bankAccount;
@@ -62,7 +61,6 @@ class LabourModel {
     required this.name,
     required this.shift,
     required this.perDaySalary,
-    required this.productionAllowance,
     required this.insurance,
     required this.welfare,
     required this.bankAccount,
@@ -77,7 +75,6 @@ class LabourModel {
       name: data['name'] ?? '',
       shift: ShiftX.fromString(data['shift'] ?? 'morning'),
       perDaySalary: (data['perDaySalary'] ?? 0).toDouble(),
-      productionAllowance: (data['productionAllowance'] ?? 0).toDouble(),
       insurance: (data['insurance'] ?? 0).toDouble(),
       welfare: (data['welfare'] ?? 0).toDouble(),
       bankAccount: data['bankAccount'] ?? '',
@@ -91,7 +88,6 @@ class LabourModel {
       'name': name,
       'shift': shift.name,
       'perDaySalary': perDaySalary,
-      'productionAllowance': productionAllowance,
       'insurance': insurance,
       'welfare': welfare,
       'bankAccount': bankAccount,
@@ -346,7 +342,6 @@ class _LabourManagementScreenState extends State<LabourManagementScreen> {
                                   DataColumn(label: Text('NAME')),
                                   DataColumn(label: Text('SHIFT')),
                                   DataColumn(label: Text('PER DAY SALARY')),
-                                  DataColumn(label: Text('PROD. ALLOWANCE')),
                                   DataColumn(label: Text('PF')),
                                   DataColumn(label: Text('ESI')),
                                   DataColumn(label: Text('BANK ACCOUNT')),
@@ -358,7 +353,6 @@ class _LabourManagementScreenState extends State<LabourManagementScreen> {
                                     DataCell(Text(l.name)),
                                     DataCell(ShiftBadge(shift: l.shift)),
                                     DataCell(Text('₹${l.perDaySalary.toStringAsFixed(0)}')),
-                                    DataCell(Text('₹${l.productionAllowance.toStringAsFixed(0)}')),
                                     DataCell(Text(l.pfEnabled ? 'Yes' : '--')),
                                     DataCell(Text(l.esiEnabled ? 'Yes' : '--')),
                                     DataCell(Text(l.bankAccount)),
@@ -483,7 +477,6 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
   late final TextEditingController _nameCtrl;
   late final TextEditingController _bankCtrl;
   late final TextEditingController _perDayCtrl;
-  late final TextEditingController _allowanceCtrl;
   late final TextEditingController _insuranceCtrl;
   late final TextEditingController _welfareCtrl;
 
@@ -504,12 +497,10 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
     _bankCtrl = TextEditingController(text: e?.bankAccount ?? '');
     _perDayCtrl =
         TextEditingController(text: e != null ? e.perDaySalary.toStringAsFixed(0) : '');
-    _allowanceCtrl = TextEditingController(
-        text: e != null ? e.productionAllowance.toStringAsFixed(0) : '0');
     _insuranceCtrl =
-        TextEditingController(text: e != null ? e.insurance.toStringAsFixed(0) : '50');
+        TextEditingController(text: e != null ? e.insurance.toStringAsFixed(0) : '0');
     _welfareCtrl =
-        TextEditingController(text: e != null ? e.welfare.toStringAsFixed(0) : '50');
+        TextEditingController(text: e != null ? e.welfare.toStringAsFixed(0) : '0');
     _shift = e?.shift ?? Shift.morning;
     _pfEnabled = e?.pfEnabled ?? false;
     _esiEnabled = e?.esiEnabled ?? false;
@@ -521,7 +512,6 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
     _nameCtrl.dispose();
     _bankCtrl.dispose();
     _perDayCtrl.dispose();
-    _allowanceCtrl.dispose();
     _insuranceCtrl.dispose();
     _welfareCtrl.dispose();
     super.dispose();
@@ -539,7 +529,6 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
       name: _nameCtrl.text.trim(),
       shift: _shift,
       perDaySalary: double.tryParse(_perDayCtrl.text.trim()) ?? 0,
-      productionAllowance: double.tryParse(_allowanceCtrl.text.trim()) ?? 0,
       insurance: double.tryParse(_insuranceCtrl.text.trim()) ?? 0,
       welfare: double.tryParse(_welfareCtrl.text.trim()) ?? 0,
       bankAccount: _bankCtrl.text.trim(),
@@ -648,28 +637,13 @@ class _AddEditLabourDialogState extends State<AddEditLabourDialog> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextFormField(
-                          controller: _perDayCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration:
-                          const InputDecoration(labelText: 'Per Day Salary (₹)'),
-                          validator: (v) =>
-                          (v == null || v.trim().isEmpty) ? 'Required' : null,
-                        ),
-                      ),
-                      const SizedBox(width: 20),
-                      Expanded(
-                        child: TextFormField(
-                          controller: _allowanceCtrl,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                              labelText: 'Production Allowance (₹)'),
-                        ),
-                      ),
-                    ],
+                  TextFormField(
+                    controller: _perDayCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration:
+                    const InputDecoration(labelText: 'Per Day Salary (₹)'),
+                    validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Required' : null,
                   ),
                   const SizedBox(height: 16),
                   Row(
@@ -832,8 +806,6 @@ class LabourDetailsDialog extends StatelessWidget {
               _row('Shift', labour.shift.label),
               _row('Bank Account', labour.bankAccount),
               _row('Per Day Salary', '₹${labour.perDaySalary.toStringAsFixed(0)}'),
-              _row('Production Allowance',
-                  '₹${labour.productionAllowance.toStringAsFixed(0)}'),
               _row('Insurance', '₹${labour.insurance.toStringAsFixed(0)}'),
               _row('Welfare', '₹${labour.welfare.toStringAsFixed(0)}'),
               _row('PF', labour.pfEnabled ? '12%' : '--'),

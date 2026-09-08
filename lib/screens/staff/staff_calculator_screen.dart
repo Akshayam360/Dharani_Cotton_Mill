@@ -1,32 +1,32 @@
-// lib/screens/labour/labour_salary_calculator_screen.dart
+// lib/screens/staff/staff_salary_calculator_screen.dart
 //
-// Labour Salary Calculator — monthly wage calculation for a single labour,
-// mirroring the Staff Salary Calculator's two-panel layout (inputs left,
-// salary slip right) but built around the Labour formula:
+// Staff Salary Calculator — monthly salary calculation for a single staff
+// member, mirroring the Labour Salary Calculator's two-panel layout
+// (inputs left, salary slip right) but built around the Staff formula:
 //
-//   Base Salary   = Days Worked × Per Day Salary
-//   Basic + DA    = 60% of Base Salary
-//   HRA           = 40% of Base Salary
-//   OT Amount     = (Per Day Salary / 8) × OT Hours
-//   Gross Wages   = Base Salary + Production Allowance + OT Amount
-//   PF            = 12% of (Basic + DA)     [only if labour.pfEnabled]
-//   ESI           = 0.75% of Base Salary (Basic+DA + HRA)  [only if labour.esiEnabled]
-//   Insurance     = flat ₹ (from labour profile)
-//   Welfare       = flat ₹ (from labour profile)
-//   Net Salary    = Gross Wages − (PF + ESI + Insurance + Welfare)
+//   Per Day Salary   = Monthly Salary / Working Days
+//   Effective Salary = Days Worked × Per Day Salary   (LOP-style prorate)
+//   Base Salary      = 60% of Effective Salary
+//   HRA              = 40% of Effective Salary
+//   Gross Salary     = Effective Salary + Production Allowance (entered per month)
+//   PF               = 12% of Base Salary     [only if staff.pfEnabled]
+//   ESI              = 0.75% of Effective Salary (Base + HRA)  [only if staff.esiEnabled]
+//   LIC              = flat ₹ (from staff profile, 0 if not applicable)
+//   Mess             = same amount as PF
+//   Welfare          = flat ₹ (from staff profile)
+//   Net Salary       = Gross Salary − (PF + ESI + LIC + Mess + Welfare)
 //
-// Flow: type a Labour ID -> live suggestions from `labours` -> pick one ->
-// enter Days Worked + OT Hours for the selected month -> Calculate Salary ->
-// slip renders on the right -> Save History writes one doc to
-// `labour_salary_history` (blocked if that labour already has a saved
+// Flow: type a Staff ID -> live suggestions from `staff` -> pick one ->
+// enter Days Worked for the selected month -> Calculate Salary -> slip
+// renders on the right -> Save History writes one doc to
+// `staff_salary_history` (blocked if that staff already has a saved
 // record for the selected month/year).
 
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'labour_management_screen.dart'
-    show LabourModel, LabourColors, ShiftX;
+import 'staff_management_screen.dart' show StaffModel, StaffColors;
 
 const int kStandardWorkingDays = 26;
 const List<String> kMonthNames = [
@@ -34,55 +34,53 @@ const List<String> kMonthNames = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-class LabourSalaryCalculatorScreen extends StatefulWidget {
-  const LabourSalaryCalculatorScreen({super.key});
+class StaffSalaryCalculatorScreen extends StatefulWidget {
+  const StaffSalaryCalculatorScreen({super.key});
 
   @override
-  State<LabourSalaryCalculatorScreen> createState() =>
-      _LabourSalaryCalculatorScreenState();
+  State<StaffSalaryCalculatorScreen> createState() =>
+      _StaffSalaryCalculatorScreenState();
 }
 
-class _LabourSalaryCalculatorScreenState
-    extends State<LabourSalaryCalculatorScreen> {
-  final _labourIdCtrl = TextEditingController();
+class _StaffSalaryCalculatorScreenState
+    extends State<StaffSalaryCalculatorScreen> {
+  final _staffIdCtrl = TextEditingController();
   final _daysWorkedCtrl = TextEditingController(text: '26');
-  final _otHoursCtrl = TextEditingController(text: '0');
   final _productionAllowanceCtrl = TextEditingController(text: '0');
 
   int _selectedMonthIndex = DateTime.now().month; // 1-12
   int _selectedYear = DateTime.now().year;
   int _workingDays = kStandardWorkingDays;
 
-  LabourModel? _labour;
-  bool _loadingLabour = false;
-  String? _labourError;
+  StaffModel? _staff;
+  bool _loadingStaff = false;
+  String? _staffError;
 
-  List<LabourModel> _suggestions = [];
+  List<StaffModel> _suggestions = [];
   Timer? _debounce;
 
-  _LabourSalaryResult? _result;
+  _StaffSalaryResult? _result;
   bool _saving = false;
   bool _checkingDuplicate = false;
 
-  final CollectionReference<Map<String, dynamic>> _labourRef =
-  FirebaseFirestore.instance.collection('labours');
+  final CollectionReference<Map<String, dynamic>> _staffRef =
+  FirebaseFirestore.instance.collection('staff');
   final CollectionReference<Map<String, dynamic>> _historyRef =
-  FirebaseFirestore.instance.collection('labour_salary_history');
+  FirebaseFirestore.instance.collection('staff_salary_history');
 
   @override
   void initState() {
     super.initState();
-    _labourIdCtrl.addListener(_onLabourIdChanged);
+    _staffIdCtrl.addListener(_onStaffIdChanged);
     _daysWorkedCtrl.addListener(() => setState(() {}));
   }
 
   @override
   void dispose() {
     _debounce?.cancel();
-    _labourIdCtrl.removeListener(_onLabourIdChanged);
-    _labourIdCtrl.dispose();
+    _staffIdCtrl.removeListener(_onStaffIdChanged);
+    _staffIdCtrl.dispose();
     _daysWorkedCtrl.dispose();
-    _otHoursCtrl.dispose();
     _productionAllowanceCtrl.dispose();
     super.dispose();
   }
@@ -110,18 +108,18 @@ class _LabourSalaryCalculatorScreenState
   }
 
   // -------------------------------------------------------------------
-  // LABOUR ID — live suggestions + selection
+  // STAFF ID — live suggestions + selection
   // -------------------------------------------------------------------
-  void _onLabourIdChanged() {
-    final text = _labourIdCtrl.text.trim();
+  void _onStaffIdChanged() {
+    final text = _staffIdCtrl.text.trim();
 
-    // If the typed text no longer matches the currently loaded labour,
+    // If the typed text no longer matches the currently loaded staff,
     // clear the stale profile + any calculated result. Compared in
-    // uppercase since Labour IDs are stored uppercase (LB001) but the
+    // uppercase since Staff IDs are stored uppercase (ST001) but the
     // user may type lower/mixed case.
-    if (_labour != null && text.toUpperCase() != _labour!.labourId) {
+    if (_staff != null && text.toUpperCase() != _staff!.staffId) {
       setState(() {
-        _labour = null;
+        _staff = null;
         _result = null;
       });
     }
@@ -130,19 +128,19 @@ class _LabourSalaryCalculatorScreenState
     if (text.isEmpty) {
       setState(() {
         _suggestions = [];
-        _labourError = null;
+        _staffError = null;
       });
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 250), () => _searchLabours(text));
+    _debounce = Timer(const Duration(milliseconds: 250), () => _searchStaff(text));
   }
 
-  Future<void> _searchLabours(String text) async {
-    // Labour IDs are stored uppercase (LB001), so normalize whatever the
-    // user typed — "lb", "Lb001", "LB001" all search the same way.
+  Future<void> _searchStaff(String text) async {
+    // Staff IDs are stored uppercase (ST001), so normalize whatever the
+    // user typed — "st", "St001", "ST001" all search the same way.
     final query = text.toUpperCase();
     try {
-      final snap = await _labourRef
+      final snap = await _staffRef
           .orderBy(FieldPath.documentId)
           .startAt([query])
           .endAt(['$query\uf8ff'])
@@ -150,62 +148,62 @@ class _LabourSalaryCalculatorScreenState
           .get();
       if (!mounted) return;
       setState(() {
-        _suggestions = snap.docs.map((d) => LabourModel.fromDoc(d)).toList();
+        _suggestions = snap.docs.map((d) => StaffModel.fromDoc(d)).toList();
       });
     } catch (_) {
       // Silently ignore search errors — the manual submit still works.
     }
   }
 
-  void _selectLabour(LabourModel labour) {
-    _labourIdCtrl.removeListener(_onLabourIdChanged);
-    _labourIdCtrl.text = labour.labourId;
-    _labourIdCtrl.addListener(_onLabourIdChanged);
+  void _selectStaff(StaffModel staff) {
+    _staffIdCtrl.removeListener(_onStaffIdChanged);
+    _staffIdCtrl.text = staff.staffId;
+    _staffIdCtrl.addListener(_onStaffIdChanged);
     _productionAllowanceCtrl.text = '0';
     setState(() {
-      _labour = labour;
-      _labourError = null;
+      _staff = staff;
+      _staffError = null;
       _suggestions = [];
       _result = null;
     });
   }
 
-  Future<void> _fetchLabour() async {
-    // Normalize to uppercase to match stored Labour IDs (LB001), so
-    // "lb001" or "Lb001" still finds the right record.
-    final id = _labourIdCtrl.text.trim().toUpperCase();
+  Future<void> _fetchStaff() async {
+    // Normalize to uppercase to match stored Staff IDs (ST001), so
+    // "st001" or "St001" still finds the right record.
+    final id = _staffIdCtrl.text.trim().toUpperCase();
     if (id.isEmpty) {
       setState(() {
-        _labourError = 'Enter a Labour ID';
-        _labour = null;
+        _staffError = 'Enter a Staff ID';
+        _staff = null;
         _result = null;
       });
       return;
     }
     setState(() {
-      _loadingLabour = true;
-      _labourError = null;
+      _loadingStaff = true;
+      _staffError = null;
       _result = null;
       _suggestions = [];
     });
     try {
-      final doc = await _labourRef.doc(id).get();
+      final doc = await _staffRef.doc(id).get();
       if (!doc.exists) {
         setState(() {
-          _labour = null;
-          _labourError = 'No labour found for ID "$id"';
+          _staff = null;
+          _staffError = 'No staff found for ID "$id"';
         });
       } else {
         _productionAllowanceCtrl.text = '0';
         setState(() {
-          _labour = LabourModel.fromDoc(doc);
-          _labourError = null;
+          _staff = StaffModel.fromDoc(doc);
+          _staffError = null;
         });
       }
     } catch (e) {
-      setState(() => _labourError = 'Failed to fetch labour: $e');
+      setState(() => _staffError = 'Failed to fetch staff: $e');
     } finally {
-      if (mounted) setState(() => _loadingLabour = false);
+      if (mounted) setState(() => _loadingStaff = false);
     }
   }
 
@@ -222,9 +220,9 @@ class _LabourSalaryCalculatorScreenState
       v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
   void _calculate() {
-    final labour = _labour;
-    if (labour == null) {
-      _showSnack('Select a valid Labour ID first', isError: true);
+    final staff = _staff;
+    if (staff == null) {
+      _showSnack('Select a valid Staff ID first', isError: true);
       return;
     }
     final daysWorked = _daysWorkedValue;
@@ -235,39 +233,44 @@ class _LabourSalaryCalculatorScreenState
       );
       return;
     }
-    final otHours = double.tryParse(_otHoursCtrl.text.trim()) ?? 0;
+
+    // LOP-style prorate: Effective Salary is the Monthly Salary reduced
+    // proportionally to days actually worked, same pattern as the
+    // college Staff Salary app (salaryPerDay × daysWorked).
+    final perDaySalary = staff.monthlySalary / _workingDays;
+    final effectiveSalary = daysWorked * perDaySalary;
+
+    final baseSalary = effectiveSalary * 0.60;
+    final hra = effectiveSalary * 0.40;
+
     final productionAllowance =
         double.tryParse(_productionAllowanceCtrl.text.trim()) ?? 0;
+    final grossSalary = effectiveSalary + productionAllowance;
 
-    final baseSalary = daysWorked * labour.perDaySalary;
-    final basicDa = baseSalary * 0.60;
-    final hra = baseSalary * 0.40;
-    final otAmount = (labour.perDaySalary / 8) * otHours;
-    final grossWages = baseSalary + productionAllowance + otAmount;
-
-    final pf = labour.pfEnabled ? basicDa * 0.12 : 0.0;
-    final esi = labour.esiEnabled ? baseSalary * 0.0075 : 0.0;
-    final insurance = labour.insurance;
-    final welfare = labour.welfare;
-    final totalDeductions = pf + esi + insurance + welfare;
-    final netSalary = grossWages - totalDeductions;
+    final pf = staff.pfEnabled ? baseSalary * 0.12 : 0.0;
+    final esi = staff.esiEnabled ? effectiveSalary * 0.0075 : 0.0;
+    final lic = staff.lic;
+    final mess = pf; // Mess bill = same amount as that month's PF (client-confirmed)
+    final welfare = staff.welfare;
+    final totalDeductions = pf + esi + lic + mess + welfare;
+    final netSalary = grossSalary - totalDeductions;
 
     setState(() {
-      _result = _LabourSalaryResult(
+      _result = _StaffSalaryResult(
         month: _selectedMonthIndex,
         year: _selectedYear,
         workingDays: _workingDays,
         daysWorked: daysWorked,
-        otHours: otHours,
+        perDaySalary: perDaySalary,
+        effectiveSalary: effectiveSalary,
         baseSalary: baseSalary,
-        basicDa: basicDa,
         hra: hra,
-        otAmount: otAmount,
         productionAllowance: productionAllowance,
-        grossWages: grossWages,
+        grossSalary: grossSalary,
         pf: pf,
         esi: esi,
-        insurance: insurance,
+        lic: lic,
+        mess: mess,
         welfare: welfare,
         totalDeductions: totalDeductions,
         netSalary: netSalary,
@@ -276,18 +279,18 @@ class _LabourSalaryCalculatorScreenState
   }
 
   // -------------------------------------------------------------------
-  // SAVE HISTORY — blocked if this labour already has a record for the
+  // SAVE HISTORY — blocked if this staff already has a record for the
   // selected month/year.
   // -------------------------------------------------------------------
   Future<void> _saveHistory() async {
-    final labour = _labour;
+    final staff = _staff;
     final result = _result;
-    if (labour == null || result == null) return;
+    if (staff == null || result == null) return;
 
     setState(() => _checkingDuplicate = true);
     try {
       final existing = await _historyRef
-          .where('labourId', isEqualTo: labour.labourId)
+          .where('staffId', isEqualTo: staff.staffId)
           .where('year', isEqualTo: result.year)
           .where('month', isEqualTo: result.month)
           .limit(1)
@@ -295,7 +298,7 @@ class _LabourSalaryCalculatorScreenState
       if (!mounted) return;
       if (existing.docs.isNotEmpty) {
         _showSnack(
-          '${labour.name} already has a saved salary for ${_monthLabel(result.month, result.year)}',
+          '${staff.name} already has a saved salary for ${_monthLabel(result.month, result.year)}',
           isError: true,
         );
         setState(() => _checkingDuplicate = false);
@@ -313,21 +316,23 @@ class _LabourSalaryCalculatorScreenState
 
     try {
       await _historyRef.add({
-        'labourId': labour.labourId,
-        'name': labour.name,
-        'bankAccount': labour.bankAccount,
+        'staffId': staff.staffId,
+        'name': staff.name,
+        'bankAccount': staff.bankAccount,
         'month': result.month,
         'year': result.year,
         'workingDays': result.workingDays,
         'daysWorked': result.daysWorked,
-        'otHours': result.otHours,
+        'monthlySalary': staff.monthlySalary,
+        'effectiveSalary': result.effectiveSalary,
         'baseSalary': result.baseSalary,
-        'otAmount': result.otAmount,
+        'hra': result.hra,
         'productionAllowance': result.productionAllowance,
-        'grossWages': result.grossWages,
+        'grossSalary': result.grossSalary,
         'pfAmount': result.pf,
         'esiAmount': result.esi,
-        'insurance': result.insurance,
+        'lic': result.lic,
+        'mess': result.mess,
         'welfare': result.welfare,
         'totalDeductions': result.totalDeductions,
         'netSalary': result.netSalary,
@@ -346,7 +351,7 @@ class _LabourSalaryCalculatorScreenState
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: LabourColors.background,
+      color: StaffColors.background,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final isNarrow = constraints.maxWidth < 1000;
@@ -360,12 +365,12 @@ class _LabourSalaryCalculatorScreenState
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.bold,
-                    color: LabourColors.primaryDark,
+                    color: StaffColors.primaryDark,
                   ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Calculate labour wages with days worked, OT hours, PF and ESI deductions.',
+                  'Calculate staff salary with prorated days worked, PF and ESI deductions.',
                   style: TextStyle(color: Colors.grey),
                 ),
                 const SizedBox(height: 24),
@@ -403,7 +408,7 @@ class _LabourSalaryCalculatorScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LabourColors.cardBorder),
+        border: Border.all(color: StaffColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -470,32 +475,32 @@ class _LabourSalaryCalculatorScreenState
           ),
           const SizedBox(height: 16),
           _FieldShell(
-            label: 'Labour ID',
+            label: 'Staff ID',
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    controller: _labourIdCtrl,
+                    controller: _staffIdCtrl,
                     decoration: const InputDecoration(
                       isDense: true,
                       border: InputBorder.none,
-                      hintText: 'Start typing e.g. LB001',
+                      hintText: 'Start typing e.g. ST001',
                     ),
-                    onSubmitted: (_) => _fetchLabour(),
+                    onSubmitted: (_) => _fetchStaff(),
                   ),
                 ),
-                _loadingLabour
+                _loadingStaff
                     ? const SizedBox(
                   width: 18,
                   height: 18,
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
-                    : (_labour != null
+                    : (_staff != null
                     ? Icon(Icons.check_circle,
                     size: 20, color: Colors.green.shade600)
                     : IconButton(
                   icon: const Icon(Icons.search, size: 20),
-                  onPressed: _fetchLabour,
+                  onPressed: _fetchStaff,
                 )),
               ],
             ),
@@ -508,34 +513,25 @@ class _LabourSalaryCalculatorScreenState
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: LabourColors.cardBorder),
+                border: Border.all(color: StaffColors.cardBorder),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: _suggestions
-                    .map((l) => InkWell(
-                  onTap: () => _selectLabour(l),
+                    .map((s) => InkWell(
+                  onTap: () => _selectStaff(s),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     child: Row(
                       children: [
-                        Container(
-                          width: 8,
-                          height: 8,
-                          decoration: BoxDecoration(
-                            color: l.shift.color,
-                            shape: BoxShape.circle,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Text(l.labourId,
+                        Text(s.staffId,
                             style: const TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 13)),
                         const SizedBox(width: 8),
                         Expanded(
-                          child: Text(l.name,
+                          child: Text(s.name,
                               style: TextStyle(
                                   color: Colors.grey.shade700,
                                   fontSize: 13),
@@ -548,77 +544,45 @@ class _LabourSalaryCalculatorScreenState
                     .toList(),
               ),
             ),
-          if (_labourError != null) ...[
+          if (_staffError != null) ...[
             const SizedBox(height: 8),
-            Text(_labourError!,
+            Text(_staffError!,
                 style: TextStyle(color: Colors.red.shade700, fontSize: 13)),
           ],
-          if (_labour != null) ...[
+          if (_staff != null) ...[
             const SizedBox(height: 10),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
-                color: LabourColors.background,
+                color: StaffColors.background,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Row(
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _labour!.shift.color,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${_labour!.name} · ${_labour!.shift.label} · ₹${_labour!.perDaySalary.toStringAsFixed(0)}/day',
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
+              child: Text(
+                '${_staff!.name} · ₹${_staff!.monthlySalary.toStringAsFixed(0)}/month',
+                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
           const SizedBox(height: 16),
-          Row(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    TextField(
-                      controller: _daysWorkedCtrl,
-                      keyboardType:
-                      const TextInputType.numberWithOptions(decimal: true),
-                      decoration: const InputDecoration(
-                        labelText: 'Days Worked',
-                        helperText: 'Use .5 for a half day',
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Absent Days : ${_fmtDays(_absentDays)}',
-                      style: TextStyle(
-                          color: Colors.red.shade700,
-                          fontSize: 12.5,
-                          fontWeight: FontWeight.w600),
-                    ),
-                  ],
+              TextField(
+                controller: _daysWorkedCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Days Worked',
+                  helperText: 'Use .5 for a half day',
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextField(
-                  controller: _otHoursCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(labelText: 'OT Hours'),
-                ),
+              const SizedBox(height: 6),
+              Text(
+                'Absent Days : ${_fmtDays(_absentDays)}',
+                style: TextStyle(
+                    color: Colors.red.shade700,
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600),
               ),
             ],
           ),
@@ -637,7 +601,7 @@ class _LabourSalaryCalculatorScreenState
             width: double.infinity,
             child: ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: LabourColors.primaryDark,
+                backgroundColor: StaffColors.primaryDark,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 shape: RoundedRectangleBorder(
@@ -663,7 +627,7 @@ class _LabourSalaryCalculatorScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: LabourColors.cardBorder),
+        border: Border.all(color: StaffColors.cardBorder),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -681,7 +645,7 @@ class _LabourSalaryCalculatorScreenState
                           color: Colors.grey)),
                   const SizedBox(height: 4),
                   Text(
-                    _labour?.name ?? '-',
+                    _staff?.name ?? '-',
                     style: const TextStyle(
                         fontSize: 20, fontWeight: FontWeight.bold),
                   ),
@@ -701,7 +665,7 @@ class _LabourSalaryCalculatorScreenState
                     : const Icon(Icons.save_outlined, size: 16),
                 label: const Text('Save History'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: LabourColors.primaryDark,
+                  foregroundColor: StaffColors.primaryDark,
                 ),
               ),
             ],
@@ -717,10 +681,6 @@ class _LabourSalaryCalculatorScreenState
                       'DAYS WORKED', r == null ? '-' : _fmtDays(r.daysWorked))),
               const SizedBox(width: 12),
               Expanded(
-                  child: _statTile(
-                      'OT HOURS', r == null ? '-' : r.otHours.toStringAsFixed(1))),
-              const SizedBox(width: 12),
-              Expanded(
                 child: _statTile(
                     'ABSENT',
                     r == null
@@ -734,15 +694,16 @@ class _LabourSalaryCalculatorScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              border: Border.all(color: LabourColors.cardBorder),
+              border: Border.all(color: StaffColors.cardBorder),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               children: [
-                _slipRow('Base Salary', r?.baseSalary),
+                _slipRow('Base Salary (60%)', r?.baseSalary),
+                _slipRow('HRA (40%)', r?.hra),
+                _slipRow('Effective Salary', r?.effectiveSalary),
                 _slipRow('Production Allowance', r?.productionAllowance),
-                _slipRow('OT Amount', r?.otAmount),
-                _slipRow('Gross Wages', r?.grossWages,
+                _slipRow('Gross Salary', r?.grossSalary,
                     bold: true, noBorder: true),
               ],
             ),
@@ -751,14 +712,15 @@ class _LabourSalaryCalculatorScreenState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
             decoration: BoxDecoration(
-              border: Border.all(color: LabourColors.cardBorder),
+              border: Border.all(color: StaffColors.cardBorder),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Column(
               children: [
                 _slipRow('PF (12%)', r?.pf),
                 _slipRow('ESI (0.75%)', r?.esi),
-                _slipRow('Insurance', r?.insurance),
+                _slipRow('LIC', r?.lic),
+                _slipRow('Mess', r?.mess),
                 _slipRow('Welfare', r?.welfare),
                 _slipRow('Total Deductions', r?.totalDeductions,
                     bold: true, noBorder: true),
@@ -770,7 +732,7 @@ class _LabourSalaryCalculatorScreenState
             width: double.infinity,
             padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
             decoration: BoxDecoration(
-              color: LabourColors.primaryDark,
+              color: StaffColors.primaryDark,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -801,7 +763,7 @@ class _LabourSalaryCalculatorScreenState
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: LabourColors.background,
+        color: StaffColors.background,
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(
@@ -813,8 +775,7 @@ class _LabourSalaryCalculatorScreenState
                   fontSize: 10, color: Colors.grey, letterSpacing: 0.5)),
           const SizedBox(height: 6),
           Text(value,
-              style: const TextStyle(
-                  fontSize: 16, fontWeight: FontWeight.bold)),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -831,7 +792,7 @@ class _LabourSalaryCalculatorScreenState
           ? null
           : BoxDecoration(
         border: Border(
-          bottom: BorderSide(color: LabourColors.cardBorder, width: 1),
+          bottom: BorderSide(color: StaffColors.cardBorder, width: 1),
         ),
       ),
       child: Row(
@@ -841,13 +802,13 @@ class _LabourSalaryCalculatorScreenState
               style: TextStyle(
                   fontSize: 14,
                   fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-                  color: bold ? LabourColors.primaryDark : Colors.grey.shade700)),
+                  color: bold ? StaffColors.primaryDark : Colors.grey.shade700)),
           Text(
             value == null ? '₹0.00' : '₹${value.toStringAsFixed(2)}',
             style: TextStyle(
                 fontSize: 14,
                 fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-                color: bold ? LabourColors.primaryDark : Colors.black87),
+                color: bold ? StaffColors.primaryDark : Colors.black87),
           ),
         ],
       ),
@@ -858,40 +819,40 @@ class _LabourSalaryCalculatorScreenState
 // ---------------------------------------------------------------------------
 // RESULT MODEL
 // ---------------------------------------------------------------------------
-class _LabourSalaryResult {
+class _StaffSalaryResult {
   final int month; // 1-12
   final int year;
   final int workingDays;
   final double daysWorked;
-  final double otHours;
+  final double perDaySalary;
+  final double effectiveSalary;
   final double baseSalary;
-  final double basicDa;
   final double hra;
-  final double otAmount;
   final double productionAllowance;
-  final double grossWages;
+  final double grossSalary;
   final double pf;
   final double esi;
-  final double insurance;
+  final double lic;
+  final double mess;
   final double welfare;
   final double totalDeductions;
   final double netSalary;
 
-  _LabourSalaryResult({
+  _StaffSalaryResult({
     required this.month,
     required this.year,
     required this.workingDays,
     required this.daysWorked,
-    required this.otHours,
+    required this.perDaySalary,
+    required this.effectiveSalary,
     required this.baseSalary,
-    required this.basicDa,
     required this.hra,
-    required this.otAmount,
     required this.productionAllowance,
-    required this.grossWages,
+    required this.grossSalary,
     required this.pf,
     required this.esi,
-    required this.insurance,
+    required this.lic,
+    required this.mess,
     required this.welfare,
     required this.totalDeductions,
     required this.netSalary,
@@ -911,7 +872,7 @@ class _FieldShell extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: LabourColors.cardBorder),
+        border: Border.all(color: StaffColors.cardBorder),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(

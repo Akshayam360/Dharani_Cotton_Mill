@@ -24,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'auth_service.dart';
 import '../screens/auth/role_selection_screen.dart'; // for UserRole enum
 import '../screens/labour/labour_shell_screen.dart';
+import '../screens/staff/staff_shell_screen.dart';
 
 /// Returns the correct dashboard/shell screen for the given role.
 /// Add your own case here — see instructions above.
@@ -34,7 +35,7 @@ Widget resolveDashboard(UserRole role) {
 
   // TODO(staff owner): replace with StaffShellScreen()
     case UserRole.staff:
-      return _PendingDashboard(role: role);
+      return const StaffShellScreen();
 
   // TODO(md owner): replace with MdShellScreen()
     case UserRole.md:

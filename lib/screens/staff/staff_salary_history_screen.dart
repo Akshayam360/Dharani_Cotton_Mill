@@ -1,31 +1,29 @@
-// lib/screens/labour/labour_salary_history_screen.dart
+// lib/screens/staff/staff_salary_history_screen.dart
 //
-// Labour Salary History — immutable-log view of every saved
-// labour_salary_history record, grouped by month with PDF export and
-// delete, mirroring the Staff Salary History screen's layout and
+// Staff Salary History — immutable-log view of every saved
+// staff_salary_history record, grouped by month with PDF export and
+// delete, mirroring the Labour Salary History screen's layout and
 // interaction pattern.
 
 import 'package:flutter/material.dart';
 import 'package:printing/printing.dart';
 
-import '../../models/labour_salary_history_model.dart';
-import '../../services/labour_salary_history_service.dart';
-import '../../services/pdf/labour_payroll_pdf_service.dart';
-import 'labour_management_screen.dart' show LabourColors;
+import '../../models/staff_salary_history_model.dart';
+import '../../services/staff_salary_history_service.dart';
+import '../../services/pdf/staff_payroll_pdf_service.dart';
+import 'staff_management_screen.dart' show StaffColors;
 
-class LabourSalaryHistoryScreen extends StatefulWidget {
-  const LabourSalaryHistoryScreen({super.key});
+class StaffSalaryHistoryScreen extends StatefulWidget {
+  const StaffSalaryHistoryScreen({super.key});
 
   @override
-  State<LabourSalaryHistoryScreen> createState() =>
-      _LabourSalaryHistoryScreenState();
+  State<StaffSalaryHistoryScreen> createState() =>
+      _StaffSalaryHistoryScreenState();
 }
 
-class _LabourSalaryHistoryScreenState
-    extends State<LabourSalaryHistoryScreen> {
-  final LabourSalaryHistoryService _historyService =
-  LabourSalaryHistoryService();
-  final LabourPayrollPdfService _pdfService = LabourPayrollPdfService();
+class _StaffSalaryHistoryScreenState extends State<StaffSalaryHistoryScreen> {
+  final StaffSalaryHistoryService _historyService = StaffSalaryHistoryService();
+  final StaffPayrollPdfService _pdfService = StaffPayrollPdfService();
 
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _horizontalController = ScrollController();
@@ -34,7 +32,7 @@ class _LabourSalaryHistoryScreenState
   String _selectedMonthFilter = 'All';
   String _selectedYearFilter = 'All';
 
-  final List<String> _monthFilters = ['All', ...kLabourHistoryMonthNames];
+  final List<String> _monthFilters = ['All', ...kStaffHistoryMonthNames];
 
   // Dynamic range (not hardcoded) so the filter keeps working in future
   // years without needing a code change — same approach as the Calculator.
@@ -62,7 +60,7 @@ class _LabourSalaryHistoryScreenState
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: LabourColors.background,
+      color: StaffColors.background,
       child: Padding(
         padding: const EdgeInsets.all(32),
         child: Column(
@@ -73,25 +71,25 @@ class _LabourSalaryHistoryScreenState
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: LabourColors.primaryDark,
+                color: StaffColors.primaryDark,
               ),
             ),
             const SizedBox(height: 4),
             const Text(
-              'Immutable log of every labour salary run.',
+              'Immutable log of every staff salary run.',
               style: TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 24),
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
-                hintText: 'Search Labour ID / Name / Account Number',
+                hintText: 'Search Staff ID / Name / Account Number',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
                 fillColor: Colors.white,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: LabourColors.cardBorder),
+                  borderSide: BorderSide(color: StaffColors.cardBorder),
                 ),
               ),
               onChanged: (value) =>
@@ -140,7 +138,7 @@ class _LabourSalaryHistoryScreenState
                 ElevatedButton.icon(
                   onPressed: _clearFilters,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: LabourColors.primary,
+                    backgroundColor: StaffColors.primary,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 18, vertical: 18),
@@ -164,7 +162,7 @@ class _LabourSalaryHistoryScreenState
             ),
             const SizedBox(height: 20),
             Expanded(
-              child: StreamBuilder<List<LabourSalaryHistoryModel>>(
+              child: StreamBuilder<List<StaffSalaryHistoryModel>>(
                 stream: _historyService.getSalaryHistory(),
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
@@ -181,7 +179,7 @@ class _LabourSalaryHistoryScreenState
                   }
 
                   final filtered = snapshot.data!.where((s) {
-                    final searchMatch = s.labourId
+                    final searchMatch = s.staffId
                         .toLowerCase()
                         .contains(_searchText) ||
                         s.name.toLowerCase().contains(_searchText) ||
@@ -200,13 +198,13 @@ class _LabourSalaryHistoryScreenState
                     );
                   }
 
-                  final Map<String, List<LabourSalaryHistoryModel>> grouped =
+                  final Map<String, List<StaffSalaryHistoryModel>> grouped =
                   {};
                   for (final h in filtered) {
                     grouped.putIfAbsent(h.monthLabel, () => []).add(h);
                   }
                   for (final list in grouped.values) {
-                    list.sort((a, b) => a.labourId.compareTo(b.labourId));
+                    list.sort((a, b) => a.staffId.compareTo(b.staffId));
                   }
 
                   // Newest month first.
@@ -231,7 +229,7 @@ class _LabourSalaryHistoryScreenState
                         decoration: BoxDecoration(
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: LabourColors.cardBorder),
+                          border: Border.all(color: StaffColors.cardBorder),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,7 +241,7 @@ class _LabourSalaryHistoryScreenState
                                   style: const TextStyle(
                                     fontSize: 22,
                                     fontWeight: FontWeight.bold,
-                                    color: LabourColors.primaryDark,
+                                    color: StaffColors.primaryDark,
                                   ),
                                 ),
                                 const Spacer(),
@@ -257,14 +255,14 @@ class _LabourSalaryHistoryScreenState
                                     await Printing.sharePdf(
                                       bytes: pdf,
                                       filename:
-                                      '$monthLabel Labour Salary Register.pdf',
+                                      '$monthLabel Staff Salary Register.pdf',
                                     );
                                   },
                                   icon: const Icon(Icons.picture_as_pdf,
                                       size: 18),
                                   label: const Text('PDF'),
                                   style: OutlinedButton.styleFrom(
-                                    foregroundColor: LabourColors.primaryDark,
+                                    foregroundColor: StaffColors.primaryDark,
                                   ),
                                 ),
                                 const SizedBox(width: 10),
@@ -281,7 +279,7 @@ class _LabourSalaryHistoryScreenState
                                   icon: const Icon(Icons.print, size: 18),
                                   label: const Text('Print'),
                                   style: ElevatedButton.styleFrom(
-                                    backgroundColor: LabourColors.primaryDark,
+                                    backgroundColor: StaffColors.primaryDark,
                                     foregroundColor: Colors.white,
                                   ),
                                 ),
@@ -299,7 +297,7 @@ class _LabourSalaryHistoryScreenState
                                   const BoxConstraints(minWidth: 1700),
                                   child: DataTable(
                                     headingRowColor: WidgetStateProperty.all(
-                                        LabourColors.primaryDark),
+                                        StaffColors.primaryDark),
                                     headingTextStyle: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
@@ -313,16 +311,16 @@ class _LabourSalaryHistoryScreenState
                                     dataRowMaxHeight: 60,
                                     columnSpacing: 26,
                                     columns: const [
-                                      DataColumn(label: Text('Labour ID')),
+                                      DataColumn(label: Text('Staff ID')),
                                       DataColumn(label: Text('Name')),
                                       DataColumn(label: Text('Account No')),
                                       DataColumn(label: Text('Working')),
                                       DataColumn(label: Text('Worked')),
-                                      DataColumn(label: Text('OT Hrs')),
-                                      DataColumn(label: Text('Gross')),
+                                      DataColumn(label: Text('Effective')),
                                       DataColumn(label: Text('PF')),
                                       DataColumn(label: Text('ESI')),
-                                      DataColumn(label: Text('Insurance')),
+                                      DataColumn(label: Text('LIC')),
+                                      DataColumn(label: Text('Mess')),
                                       DataColumn(label: Text('Welfare')),
                                       DataColumn(label: Text('Deduction')),
                                       DataColumn(label: Text('Net Salary')),
@@ -330,23 +328,23 @@ class _LabourSalaryHistoryScreenState
                                     ],
                                     rows: records.map((r) {
                                       return DataRow(cells: [
-                                        DataCell(Text(r.labourId)),
+                                        DataCell(Text(r.staffId)),
                                         DataCell(Text(r.name)),
                                         DataCell(Text(r.bankAccount.isEmpty
                                             ? '-'
                                             : r.bankAccount)),
                                         DataCell(Text('${r.workingDays}')),
                                         DataCell(Text(_fmtDays(r.daysWorked))),
-                                        DataCell(
-                                            Text(r.otHours.toStringAsFixed(1))),
                                         DataCell(Text(
-                                            '₹${r.grossWages.toStringAsFixed(0)}')),
+                                            '₹${r.effectiveSalary.toStringAsFixed(0)}')),
                                         DataCell(Text(
                                             '₹${r.pfAmount.toStringAsFixed(0)}')),
                                         DataCell(Text(
                                             '₹${r.esiAmount.toStringAsFixed(2)}')),
                                         DataCell(Text(
-                                            '₹${r.insurance.toStringAsFixed(0)}')),
+                                            '₹${r.lic.toStringAsFixed(0)}')),
+                                        DataCell(Text(
+                                            '₹${r.mess.toStringAsFixed(0)}')),
                                         DataCell(Text(
                                             '₹${r.welfare.toStringAsFixed(0)}')),
                                         DataCell(Text(
@@ -389,14 +387,14 @@ class _LabourSalaryHistoryScreenState
   String _fmtDays(double v) =>
       v == v.roundToDouble() ? v.toInt().toString() : v.toStringAsFixed(1);
 
-  Future<void> _showDeleteDialog(LabourSalaryHistoryModel record) async {
+  Future<void> _showDeleteDialog(StaffSalaryHistoryModel record) async {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Salary Record'),
         content: Text(
           'Are you sure you want to delete the salary record of\n\n'
-              '${record.name}\n(${record.labourId})\n\n'
+              '${record.name}\n(${record.staffId})\n\n'
               'for ${record.monthLabel}?\n\n'
               'This cannot be undone.',
         ),
@@ -419,7 +417,7 @@ class _LabourSalaryHistoryScreenState
     );
   }
 
-  Future<void> _deleteRecord(LabourSalaryHistoryModel record) async {
+  Future<void> _deleteRecord(StaffSalaryHistoryModel record) async {
     try {
       await _historyService.deleteSalaryHistory(record.id);
       if (mounted) {
@@ -518,7 +516,7 @@ class _LabourSalaryHistoryScreenState
                                   12,
                                       (i) => DropdownMenuItem(
                                     value: i + 1,
-                                    child: Text(kLabourHistoryMonthNames[i]),
+                                    child: Text(kStaffHistoryMonthNames[i]),
                                   ),
                                 ),
                                 onChanged: (v) =>
@@ -577,7 +575,7 @@ class _LabourSalaryHistoryScreenState
       _ClearHistoryScope.all => 'ALL salary history records',
       _ClearHistoryScope.year => 'all records for $year',
       _ClearHistoryScope.month =>
-      'all records for ${kLabourHistoryMonthNames[month - 1]} $year',
+      'all records for ${kStaffHistoryMonthNames[month - 1]} $year',
     };
 
     final confirmed = await showDialog<bool>(
