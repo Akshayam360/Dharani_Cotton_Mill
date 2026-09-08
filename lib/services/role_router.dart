@@ -25,6 +25,8 @@ import 'auth_service.dart';
 import '../screens/auth/role_selection_screen.dart'; // for UserRole enum
 import '../screens/labour/labour_shell_screen.dart';
 import '../screens/staff/staff_shell_screen.dart';
+import '../screens/md/md_shell_screen.dart';
+import '../screens/exempted/exempted_shell_screen.dart';
 
 /// Returns the correct dashboard/shell screen for the given role.
 /// Add your own case here — see instructions above.
@@ -36,13 +38,11 @@ Widget resolveDashboard(UserRole role) {
     case UserRole.staff:
       return const StaffShellScreen();
 
-  // TODO(md owner): replace with MdShellScreen()
     case UserRole.md:
-      return _PendingDashboard(role: role);
+      return const MDShellScreen();
 
-  // TODO(exempted owner): replace with ExemptedShellScreen()
     case UserRole.exempted:
-      return _PendingDashboard(role: role);
+      return const ExemptedShellScreen();
   }
 }
 
